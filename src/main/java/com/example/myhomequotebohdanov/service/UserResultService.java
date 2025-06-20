@@ -51,7 +51,7 @@ public class UserResultService {
 
     resultsByUser.computeIfAbsent(
         userResult.getUser_id(),
-        k -> new ArrayList<>()
+        k -> Collections.synchronizedList(new ArrayList<>())
     );
     List<UserResult> userResultsList = resultsByUser.get(userResult.getUser_id());
     insertSorted(userResultsList, userResult, BY_RESULT_AND_LEVEL);
@@ -64,7 +64,7 @@ public class UserResultService {
   }
 
   //Read: O(1) to get sorted list + O(k) to limit sorted list [20 items -> O(1)]
-  public List<UserResult> getTopResultsByUser(long user_id) {
+  public synchronized List<UserResult> getTopResultsByUser(long user_id) {
     List<UserResult> userResults = resultsByUser.getOrDefault(user_id, Collections.emptyList());
     return userResults.stream()
         .limit(DEFAULT_TOP_SIZE)
@@ -72,7 +72,7 @@ public class UserResultService {
   }
 
   //Read: O(n log n)
-  public List<UserResult> getTopResultsByLevel(long level_id) {
+  public synchronized List<UserResult> getTopResultsByLevel(long level_id) {
     List<UserResult> levelResults = resultsByLevel.getOrDefault(level_id, Collections.emptyList());
     return levelResults.stream()
         .sorted(BY_RESULT_AND_USER)
