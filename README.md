@@ -144,4 +144,4 @@ java -jar target/myhomequotebohdanov-1.0-SNAPSHOT.jar \
 
 ## Автор
 
-Bohdanov Roman 
+Bohdanov Roman
