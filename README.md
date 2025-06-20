@@ -12,14 +12,14 @@ Spring Boot REST API для управління результатами кор
 
 ## Технології
 
-- **Java 19**
+- **Java 11**
 - **Spring Boot 2.7.18**
 - **Maven**
 - **Embedded Tomcat**
 
 ## Вимоги
 
-- Java 19 або вище
+- Java 11 або вище
 - Maven 3.6+
 
 ## Швидкий старт
