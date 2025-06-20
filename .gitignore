@@ -58,4 +58,12 @@ Thumbs.db
 
 # Application specific
 application-local.properties
-application-dev.properties 
+application-dev.properties
+
+# Performance analysis files
+*_analysis.png
+*_comparison.png
+*_comparison.py
+performance_*.png
+performance_*.py
+detailed_*.png 
