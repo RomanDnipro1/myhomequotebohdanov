@@ -3,6 +3,7 @@ package com.example.myhomequotebohdanov.controller;
 import com.example.myhomequotebohdanov.model.UserResult;
 import com.example.myhomequotebohdanov.service.UserResultService;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,11 +48,16 @@ public class UserResultController {
   }
 
   @PutMapping("/setinfo")
-  public ResponseEntity<UserResult> setInfo(@RequestBody UserResult userResult) {
+  public ResponseEntity<UserResult> setInfo(@RequestBody Map<String, Object> requestBody) {
     logger.info("PUT request: /api/setinfo");
-    logger.info("Request body: user_id={}, level_id={}, result={}",
-        userResult.getUser_id(), userResult.getLevel_id(), userResult.getResult());
+    
+    long user_id = ((Number) requestBody.get("user_id")).longValue();
+    long level_id = ((Number) requestBody.get("level_id")).longValue();
+    int result = ((Number) requestBody.get("result")).intValue();
+    
+    logger.info("Request body: user_id={}, level_id={}, result={}", user_id, level_id, result);
 
+    UserResult userResult = new UserResult(user_id, level_id, result);
     userResultService.setResult(userResult);
 
     logger.info("Result successfully saved");
