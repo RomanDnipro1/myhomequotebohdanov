@@ -62,13 +62,11 @@ Content-Type: application/json
 ### Отримання результатів користувача
 ```
 GET /api/userinfo/{user_id}
-GET /api/userinfo/{user_id}?topSize=10
 ```
 
 ### Отримання результатів рівня
 ```
 GET /api/levelinfo/{level_id}
-GET /api/levelinfo/{level_id}?topSize=10
 ```
 
 ## Приклади використання
@@ -80,14 +78,14 @@ curl -X PUT "http://localhost:8080/api/setinfo" \
   -d '{"user_id": 1, "level_id": 1, "result": 100}'
 ```
 
-### Отримання топ-5 результатів користувача
+### Отримання результатів користувача
 ```bash
-curl "http://localhost:8080/api/userinfo/1?topSize=5"
+curl "http://localhost:8080/api/userinfo/1"
 ```
 
-### Отримання топ-10 результатів рівня
+### Отримання результатів рівня
 ```bash
-curl "http://localhost:8080/api/levelinfo/1?topSize=10"
+curl "http://localhost:8080/api/levelinfo/1"
 ```
 
 ## Особливості реалізації
