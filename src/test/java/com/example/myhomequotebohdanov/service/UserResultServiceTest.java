@@ -81,18 +81,18 @@ class UserResultServiceTest {
       userResultService.setResult(new UserResult(1, i, 100 - i));
     }
 
-    List<UserResult> results = userResultService.getTopResultsByUser(1, 10);
+    List<UserResult> results = userResultService.getTopResultsByUser(1);
 
-    System.out.println("=== Results with limit 10 ===");
+    System.out.println("=== Results with default limit ===");
     for (int i = 0; i < results.size(); i++) {
       UserResult result = results.get(i);
       System.out.printf("[%d] user_id=%d, level_id=%d, result=%d%n",
           i, result.getUser_id(), result.getLevel_id(), result.getResult());
     }
 
-    assertEquals(10, results.size(), "Should return only 10 results");
+    assertEquals(20, results.size(), "Should return only 20 results (default limit)");
     assertEquals(99, results.get(0).getResult(), "First result should be highest");
-    assertEquals(90, results.get(9).getResult(), "Last result should be 90");
+    assertEquals(80, results.get(19).getResult(), "Last result should be 80");
   }
 
   @Test
