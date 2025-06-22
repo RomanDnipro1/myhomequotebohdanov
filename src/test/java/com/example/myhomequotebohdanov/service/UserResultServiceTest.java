@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.example.myhomequotebohdanov.model.UserResult;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class UserResultServiceTest {
@@ -19,7 +18,6 @@ class UserResultServiceTest {
   }
 
   @Test
-  @DisplayName("Test sorting user results by result (descending) and level_id (descending)")
   void testGetTopResultsByUser_Sorting() {
     userResultService.setResult(new UserResult(1, 2, 8));
     userResultService.setResult(new UserResult(1, 1, 55));
@@ -47,7 +45,6 @@ class UserResultServiceTest {
   }
 
   @Test
-  @DisplayName("Test sorting level results by result (descending) and user_id (descending)")
   void testGetTopResultsByLevel_Sorting() {
     userResultService.setResult(new UserResult(2, 1, 75));
     userResultService.setResult(new UserResult(1, 1, 100));
@@ -75,7 +72,6 @@ class UserResultServiceTest {
   }
 
   @Test
-  @DisplayName("Test limiting number of results")
   void testGetTopResultsByUser_Limit() {
     for (int i = 1; i <= 25; i++) {
       userResultService.setResult(new UserResult(1, i, 100 - i));
@@ -96,21 +92,18 @@ class UserResultServiceTest {
   }
 
   @Test
-  @DisplayName("Test returning empty list for non-existent user")
   void testGetTopResultsByUser_NonExistentUser() {
     List<UserResult> results = userResultService.getTopResultsByUser(999);
     assertTrue(results.isEmpty(), "Should return empty list");
   }
 
   @Test
-  @DisplayName("Test returning empty list for non-existent level")
   void testGetTopResultsByLevel_NonExistentLevel() {
     List<UserResult> results = userResultService.getTopResultsByLevel(999);
     assertTrue(results.isEmpty(), "Should return empty list");
   }
 
   @Test
-  @DisplayName("Test saving and retrieving single result")
   void testSetAndGetSingleResult() {
     UserResult userResult = new UserResult(1, 1, 100);
     userResultService.setResult(userResult);
@@ -120,5 +113,32 @@ class UserResultServiceTest {
     List<UserResult> levelResults = userResultService.getTopResultsByLevel(1);
     assertEquals(1, levelResults.size());
     assertEquals(100, levelResults.get(0).getResult());
+  }
+
+  @Test
+  void testMaxResultsSize() {
+    // Тест обмеження розміру до 20 елементів
+    for (int i = 0; i < 30; i++) {
+      userResultService.setResult(new UserResult(1L, 1L, i));
+    }
+
+    List<UserResult> results = userResultService.getTopResultsByUser(1L);
+    assertEquals(20, results.size());
+    assertEquals(29, results.get(0).getResult()); // Найкращий результат (29)
+    assertEquals(10, results.get(results.size() - 1).getResult()); // 20-й за рахунком (10)
+  }
+
+  @Test
+  void testSorting() {
+    // Тест правильності сортування
+    userResultService.setResult(new UserResult(1L, 1L, 50));
+    userResultService.setResult(new UserResult(1L, 1L, 100));
+    userResultService.setResult(new UserResult(1L, 1L, 25));
+
+    List<UserResult> results = userResultService.getTopResultsByUser(1L);
+    assertEquals(3, results.size());
+    assertEquals(100, results.get(0).getResult()); // Найкращий першим
+    assertEquals(50, results.get(1).getResult());
+    assertEquals(25, results.get(2).getResult()); // Найгірший останнім
   }
 } 

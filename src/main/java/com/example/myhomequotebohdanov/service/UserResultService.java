@@ -7,15 +7,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserResultService {
 
-  private static final long DEFAULT_TOP_SIZE = 20;
-  private static final long DEFAULT_MAX_RESULTS_PER_USER = -1; // -1 means unlimited
-  private static final long DEFAULT_MAX_RESULTS_PER_LEVEL = -1; // -1 means unlimited
+  private static final int MAX_RESULTS_SIZE = 20;
 
   private static final Comparator<UserResult> BY_RESULT_AND_LEVEL =
       Comparator.comparingInt(UserResult::getResult).reversed()
@@ -28,56 +25,91 @@ public class UserResultService {
   private final Map<Long, List<UserResult>> resultsByUser = new ConcurrentHashMap<>();
   private final Map<Long, List<UserResult>> resultsByLevel = new ConcurrentHashMap<>();
 
-  //Insert: O(log n) to find position + O(n) to insert = O(n)
-  private void insertSorted(List<UserResult> list, UserResult userResult, Comparator<UserResult> comparator) {
-    int idx = Collections.binarySearch(list, userResult, comparator);
-    if (idx < 0) {
-      idx = -idx - 1;
+  public void setResult(UserResult userResult) {
+
+    if (userResult == null) {
+      throw new IllegalArgumentException("UserResult cannot be null");
     }
-    list.add(idx, userResult);
+
+    long userId = userResult.getUser_id();
+    long levelId = userResult.getLevel_id();
+
+    if (userId <= 0) {
+      throw new IllegalArgumentException("User ID must be positive, got: " + userId);
+    }
+    if (levelId <= 0) {
+      throw new IllegalArgumentException("Level ID must be positive, got: " + levelId);
+    }
+
+    //виконуємо операції паралельно з окремими блокуваннями
+    updateUserResultsWithLock(userId, userResult);
+    updateLevelResultsWithLock(levelId, userResult);
   }
 
-  private void limitResultsIfNeeded(List<UserResult> list, long maxSize) {
-    if (maxSize > 0 && list.size() > maxSize) {
-      list.subList((int) maxSize, list.size()).clear();
+  private void updateUserResultsWithLock(long userId, UserResult userResult) {
+    //computeIfAbsent - потокобезпечний атомарний метод у ConcurrentHashMap
+    List<UserResult> userResults = resultsByUser.computeIfAbsent(userId,
+        k -> new ArrayList<>());
+
+    //Compound опреація: додавання нового елемента, сортування, обрізки до 20
+    //виконується неподільно, без можливості вклинитися іншим потокам
+    synchronized (userResults) {  //лочимо тільки список який оновлюємо, а не всю мапу
+      userResults.add(userResult);
+      userResults.sort(BY_RESULT_AND_LEVEL);
+      if (userResults.size() > MAX_RESULTS_SIZE) {
+        //відсікаємо значення після 20 саме в існуючому лісті, а не створюємо новий
+        userResults.subList(MAX_RESULTS_SIZE, userResults.size()).clear();
+      }
     }
   }
 
-  public synchronized void setResult(UserResult userResult) {
-    resultsByLevel.computeIfAbsent(
-        userResult.getLevel_id(),
-        k -> Collections.synchronizedList(new ArrayList<>())
-    ).add(userResult);
+  private void updateLevelResultsWithLock(long levelId, UserResult userResult) {
+    //computeIfAbsent - потокобезпечний атомарний метод у ConcurrentHashMap
+    List<UserResult> levelResults = resultsByLevel.computeIfAbsent(levelId,
+        k -> new ArrayList<>());
 
-    resultsByUser.computeIfAbsent(
-        userResult.getUser_id(),
-        k -> Collections.synchronizedList(new ArrayList<>())
-    );
-    List<UserResult> userResultsList = resultsByUser.get(userResult.getUser_id());
-    insertSorted(userResultsList, userResult, BY_RESULT_AND_LEVEL);
-    
-    limitResultsIfNeeded(userResultsList, DEFAULT_MAX_RESULTS_PER_USER);
-    
-    List<UserResult> levelResultsList = resultsByLevel.get(userResult.getLevel_id());
-    levelResultsList.sort(BY_RESULT_AND_USER);
-    limitResultsIfNeeded(levelResultsList, DEFAULT_MAX_RESULTS_PER_LEVEL);
+    //Compound опреація: додавання нового елемента, сортування, обрізки до 20
+    //виконується неподільно, без можливості вклинитися іншим потокам
+    synchronized (levelResults) {  //лочимо тільки список який оновлюємо, а не всю мапу
+      levelResults.add(userResult);
+      levelResults.sort(BY_RESULT_AND_USER);
+      if (levelResults.size() > MAX_RESULTS_SIZE) {
+        //відсікаємо значення після 20 саме в існуючому лісті, а не створюємо новий
+        levelResults.subList(MAX_RESULTS_SIZE, levelResults.size()).clear();
+      }
+    }
   }
 
-  //Read: O(1) to get sorted list + O(k) to limit sorted list [20 items -> O(1)]
-  public synchronized List<UserResult> getTopResultsByUser(long user_id) {
-    List<UserResult> userResults = resultsByUser.getOrDefault(user_id, Collections.emptyList());
-    return userResults.stream()
-        .limit(DEFAULT_TOP_SIZE)
-        .collect(Collectors.toList());
+  public List<UserResult> getTopResultsByUser(long user_id) {
+
+    if (user_id < 0) {
+      throw new IllegalArgumentException("User ID must be positive, got: " + user_id);
+    }
+
+    List<UserResult> userResults = resultsByUser.get(user_id);
+    if (userResults == null) {
+      return Collections.emptyList();
+    }
+    //синхронізуємося по лісту топ-результатів юзера задля консистентності данних
+    synchronized (userResults) {  //операції паралельного читання блокуються, але вважаю це ефективніше і прозоріше за використання CopyOnWriteArrayList
+      return new ArrayList<>(userResults); //повертаємо копію замість посилання, щоб інший поток міг паралельно змінювати оригінальну колекцію
+    }
   }
 
-  //Read: O(n log n)
-  public synchronized List<UserResult> getTopResultsByLevel(long level_id) {
-    List<UserResult> levelResults = resultsByLevel.getOrDefault(level_id, Collections.emptyList());
-    return levelResults.stream()
-        .sorted(BY_RESULT_AND_USER)
-        .limit(DEFAULT_TOP_SIZE)
-        .collect(Collectors.toList());
+  public List<UserResult> getTopResultsByLevel(long level_id) {
+
+    if (level_id < 0) {
+      throw new IllegalArgumentException("Level ID must be positive, got: " + level_id);
+    }
+
+    List<UserResult> levelResults = resultsByLevel.get(level_id);
+    if (levelResults == null) {
+      return Collections.emptyList();
+    }
+    //синхронізуємося по лісту топ-результатів левела задля консистентності данних
+    synchronized (levelResults) { //операції паралельного читання блокуються, але вважаю це ефективніше і прозоріше за використання CopyOnWriteArrayList
+      return new ArrayList<>(levelResults); //повертаємо копію замість посилання, щоб інший поток міг паралельно змінювати оригінальну колекцію
+    }
   }
 
 }
